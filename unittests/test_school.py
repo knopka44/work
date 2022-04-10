@@ -64,7 +64,7 @@ class TestSchool(unittest.TestCase):
 
     def test_automat_some_students_notequal(self):
         answer = self.school.automat(6)
-        self.assertNotEqual(answer, 'Agrest Larina')
+        self.assertNotEqual(answer, 'Agrest Larina ')
 
 
 if __name__ == "__main__":
