@@ -4,10 +4,12 @@ from calculator import Calculator
 
 class TestCalculator(unittest.TestCase):
 
-    def setUp(self):
-        self.calc = Calculator()
+    @classmethod
+    def setUpClass(cls):
+        cls.calc = Calculator()
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         print('This is a unittest for calculator')
 
     def test_sum(self):
