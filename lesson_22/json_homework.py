@@ -52,3 +52,9 @@ def find_a_student_by_name(name):
                 print(element)
     else:
         print(f'Name {name} is not found')
+
+
+one_class_students('3a')
+one_club_students('box')
+one_gender('m')
+find_a_student_by_name('Yuki')

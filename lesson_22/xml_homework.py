@@ -39,7 +39,7 @@ def find_by_title(book_title):
                 price = book.find('price').text
                 publish_date = book.find('publish_date').text
                 print(f"{title} by {author}\ngenre: {genre}\n"
-                      f"price: {price}\npublish_date: {publish_date}")
+                      f"price: {price}\npublish_date: {publish_date}\n")
 
 
 def find_by_author(book_author):
@@ -69,3 +69,10 @@ def find_by_description(book_description):
             if book_description == book.find('description').text:
                 match = book.find('title').text
                 print(f"The book with the matching description is {match}")
+
+
+find_by_price('36.75')
+find_by_title('Maeve Ascendant')
+find_by_author('Zed')
+find_by_description('Even bad code can function. But if code isn’t clean, '
+                    'it can bring a development organization to its knees.')
