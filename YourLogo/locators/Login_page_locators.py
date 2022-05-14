@@ -9,3 +9,4 @@ class LoginPageLocators:
     SUBMIT = (By.ID, "SubmitLogin")
     ACCOUNT_INFO = (By.CLASS_NAME, 'info-account')
     ERROR = (By.XPATH, '//*[@id="center_column"]/div[1]/p')
+    SIGN_OUT = (By.CLASS_NAME, "logout")

@@ -49,6 +49,7 @@ class LoginPage(BasePage):
         return acc_info.text
 
     def login_false(self, email, password):
+        self.find_element(LoginPageLocators.SIGN_OUT).click()
         self.fill_email_field(email)
         self.fill_password_field(password)
         self.click_submit_field()
