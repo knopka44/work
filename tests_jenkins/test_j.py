@@ -10,7 +10,7 @@ class GoogleTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.browser = webdriver.Chrome("/home/valerya/PycharmProjects/My_homework/tests/chromedriver")
+        cls.browser = webdriver.Chrome("/home/valerya/PycharmProjects/My_homework/tests/chromedriver.exe")
         cls.browser.maximize_window()
         cls.browser.get(cls.google_url)
         cls.browser.implicitly_wait(10)
