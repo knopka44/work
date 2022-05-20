@@ -9,7 +9,7 @@ from selenium.webdriver.chrome.service import Service
 
 @pytest.fixture(scope='class')
 def driver():
-    path = "/usr/bin/google-chrome-stable"
+    path = "/usr/bin/google-chrome"
     s = Service(path)
     driver = webdriver.Chrome(service=s)
     driver.maximize_window()
