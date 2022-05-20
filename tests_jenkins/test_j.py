@@ -5,10 +5,12 @@ from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
+import os
 
 
 @pytest.fixture(scope='class')
 def driver():
+    os.chmod("/home/valerya/PycharmProjects/My_homework/tests/chromedriver", 755)
     s = Service("/home/valerya/PycharmProjects/My_homework/tests/chromedriver")
     driver = webdriver.Chrome(service=s)
     driver.maximize_window()
