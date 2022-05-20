@@ -4,14 +4,11 @@ from selenium.webdriver.common.by import By
 from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
 
 
 @pytest.fixture(scope='class')
 def driver():
-    path = "/home/valerya/PycharmProjects/My_homework/tests/chromedriver"
-    s = Service(path)
-    driver = webdriver.Chrome(service=s)
+    driver = webdriver.Chrome()
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
