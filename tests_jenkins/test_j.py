@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.service import Service
 
 @pytest.fixture(scope='class')
 def driver():
-    s = Service('/home/valerya/PycharmProjects/My_homework/tests/chromedriver')
+    s = Service()
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
