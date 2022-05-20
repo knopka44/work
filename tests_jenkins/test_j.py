@@ -8,12 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 @pytest.fixture(scope='class')
 def driver():
-    options = webdriver.ChromeOptions()
-    options.add_argument('--no-sandbox')
-    options.add_argument('--window-size=1420,1080')
-    options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
-    driver = webdriver.Chrome(options=options)
+    driver = webdriver.Chrome("/home/valerya/PycharmProjects/My_homework/tests/chromedriver")
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
