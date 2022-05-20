@@ -4,12 +4,14 @@ from selenium.webdriver.common.by import By
 from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 
 
 @pytest.fixture(scope='class')
 def driver():
-    driver = webdriver.Chrome("/usr/bin/google-chrome-stable")
+    path = "/usr/bin/google-chrome-stable"
+    s = Service(path)
+    driver = webdriver.Chrome(service=s)
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
