@@ -1,38 +1,42 @@
-import allure
+import pytest
 from selenium import webdriver
-import unittest
+from selenium.webdriver.common.by import By
+from test_j_info import *
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
-class GoogleTest(unittest.TestCase):
-    browser = None
-    google_title = "Google"
-    google_url = "https://www.google.com/"
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.browser = webdriver.Chrome()
-        cls.browser.maximize_window()
-        cls.browser.get(cls.google_url)
-        cls.browser.implicitly_wait(10)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.browser.quit()
-
-    @allure.story("Check Google's url")
-    def test_url(self):
-        with allure.step("Define current url"):
-            current_url = self.browser.current_url
-        with allure.step("Assert current url equals Google's url"):
-            self.assertEqual(current_url, self.google_url)
-
-    @allure.story("Check title of the Google's site")
-    def test_title(self):
-        with allure.step("Define url's title"):
-            title = self.browser.title
-        with allure.step("Assert current title equals Google's title"):
-            self.assertEqual(title, self.google_title)
+@pytest.fixture(scope='class')
+def driver():
+    driver = webdriver.Chrome()
+    driver.maximize_window()
+    driver.get(url)
+    driver.implicitly_wait(10)
+    yield driver
+    driver.quit()
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestDynamicControls:
+
+    def test_checkbox_is_gone(self, driver):
+        checkbox = driver.find_element(by=By.XPATH, value=f'{checkbox_site}')
+        checkbox.click()
+        remove = driver.find_element(by=By.XPATH, value=f'{remove_site}')
+        remove.click()
+        message = driver.find_element(by=By.ID, value=f'{message_site}')
+        WebDriverWait(driver, 15).until(EC.visibility_of(message))
+        invisibility = WebDriverWait(driver, 15).until(
+            EC.invisibility_of_element(checkbox))
+        assert invisibility is True
+
+    def test_input_disabled(self, driver):
+        input_text = driver.find_element(by=By.XPATH, value=f'{input_site}')
+        assert input_text.get_attribute('disabled') == 'true'
+
+    def test_input_enabled(self, driver):
+        enable = driver.find_element(by=By.XPATH, value=f'{enable_site}')
+        enable.click()
+        message = driver.find_element(by=By.ID, value=f'{message_site}')
+        WebDriverWait(driver, 15).until(EC.visibility_of(message))
+        input_text = driver.find_element(by=By.XPATH, value=f'{input_site}')
+        assert input_text.get_attribute('disabled') is None
