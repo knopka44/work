@@ -5,23 +5,11 @@ from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-
 
 
 @pytest.fixture(scope='class')
 def driver():
-    options = Options()
-    options.binary_location = "/home/valerya/PycharmProjects/My_homework/tests/chromedriver"  # chrome binary location specified here
-    options.add_argument("--start-maximized")  # open Browser in maximized mode
-    options.add_argument("--no-sandbox")  # bypass OS security model
-    options.add_argument(
-        "--disable-dev-shm-usage")  # overcome limited resource problems
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    path = "/home/valerya/PycharmProjects/My_homework/tests/chromedriver"
-    s = Service(path)
-    driver = webdriver.Chrome(service=s, options=options)
+    driver = webdriver.Chrome()
     driver.get(url)
     driver.implicitly_wait(10)
     yield driver
