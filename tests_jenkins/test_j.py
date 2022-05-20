@@ -8,7 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 @pytest.fixture(scope='class')
 def driver():
-    driver = webdriver.Chrome("homework/chromedriver")
+    driver = webdriver.Chrome()
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
