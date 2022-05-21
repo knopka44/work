@@ -1,22 +1,19 @@
 import pytest
 from selenium import webdriver
-# from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-# from webdriver_manager.chrome import ChromeDriverManager
 
 
 @pytest.fixture(scope='class')
 def driver():
-    options = Options()
-    options.add_argument("--headless")  # Runs Chrome in headless mode.
-    options.add_argument('--no-sandbox')  # # Bypass OS security model
-    options.add_argument('--remote-debugging-port=9222')
+    options = webdriver.ChromeOptions()
+    options.add_argument('--no-sandbox')
+    options.add_argument('--window-size=1420,1080')
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
     driver = webdriver.Chrome(options=options)
-
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
