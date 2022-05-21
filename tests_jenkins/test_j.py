@@ -9,7 +9,7 @@ from selenium.webdriver.chrome.service import Service
 
 @pytest.fixture(scope='class')
 def driver():
-    s = Service('/home/valerya/PycharmProjects/My_homework/tests/chromedriver')
+    s = Service('/home/valerya/PycharmProjects/My_homework/tests/chromedriver.exe')
     driver = webdriver.Chrome(service=s)
     driver.maximize_window()
     driver.get(url)
