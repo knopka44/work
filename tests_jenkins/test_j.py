@@ -16,11 +16,8 @@ def driver():
     options = Options()
     options.add_argument("--headless")  # Runs Chrome in headless mode.
     options.add_argument('--no-sandbox')  # # Bypass OS security model
-    options.add_argument("--remote-debugging-port=9222")  # debugging port from webDriverException
-    # options.add_argument("--disable-dev-shm-using")
-    # options.add_argument("--disable-extensions")
-    # options.add_argument('start-maximized')
-    # options.add_argument("--disable-extensions")
+    options.add_argument("--disable-dev-shm-using")
+    options.add_argument("--disable-extensions")
     driver = webdriver.Chrome(options=options)
 
     driver.maximize_window()
