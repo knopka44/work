@@ -1,5 +1,6 @@
 import pytest
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
@@ -9,15 +10,17 @@ from selenium.webdriver.chrome.options import Options
 
 @pytest.fixture(scope='class')
 def driver():
+
     webdriver_path = '/usr/bin/chromedriver'
+    ser = Service(webdriver_path)
     options = Options()
     options.add_argument("--headless")  # Runs Chrome in headless mode.
     options.add_argument('--no-sandbox')  # # Bypass OS security model
     options.add_argument('start-maximized')
     options.add_argument('disable-infobars')
     options.add_argument("--disable-extensions")
-    driver = webdriver.Chrome(chrome_options=options,
-                              executable_path=webdriver_path)
+    driver = webdriver.Chrome(options=options,
+                              service=ser)
 
     driver.maximize_window()
     driver.get(url)
