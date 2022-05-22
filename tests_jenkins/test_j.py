@@ -14,7 +14,7 @@ def driver():
     driver_options.add_argument('--headless')
     driver_options.add_argument('--no-sandbox')
     warnings.filterwarnings("ignore", category=DeprecationWarning)
-    driver = webdriver.Chrome(executable_path='https://github.com/agrestvaleria/homework/blob/e060011dcb7a4928c6e3acb850935c43e552df2d/chromedriver',
+    driver = webdriver.Chrome(executable_path='/usr/bin/chromedriver',
                               options=driver_options)
     driver.maximize_window()
     driver.get(url)
