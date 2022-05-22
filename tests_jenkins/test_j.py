@@ -6,20 +6,20 @@ from webdriver_manager.chrome import ChromeDriverManager
 from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
 import warnings
 
 
 @pytest.fixture(scope='class')
 def driver():
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--headless')
+    driver_options = Options()
+    driver_options.add_argument('--headless')
+    driver_options.add_argument('--no-sandbox')
     warnings.filterwarnings("ignore", category=DeprecationWarning)
-    driver = webdriver.Chrome(executable_path=ChromeDriverManager().install(),
-                              options=chrome_options)
+    driver = webdriver.Chrome(executable_path=ChromeDriverManager().install(), options=driver_options)
     driver.maximize_window()
-    driver.get(url)
     driver.implicitly_wait(10)
+    driver.get(url)
     yield driver
     driver.quit()
 
