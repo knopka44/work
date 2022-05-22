@@ -10,17 +10,7 @@ import warnings
 
 @pytest.fixture(scope='class')
 def driver():
-    driver_options = Options()
-    driver_options.add_argument('--headless')
-    driver_options.add_argument('--no-sandbox')
-    driver_options.add_argument('--user-data-dir=~/.config/google-chrome')
-    # driver_options.add_argument('disable-infobars')
-    # driver_options.add_argument("--disable-extensions")
-    driver_options.add_argument("--disable-gpu")
-    driver_options.add_argument("--disable-dev-shm-usage")
-    # driver_options.binary_location = '/usr/bin/google-chrome'
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    driver = webdriver.Chrome(options=driver_options)
+    driver = webdriver.Chrome()
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
