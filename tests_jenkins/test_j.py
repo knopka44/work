@@ -1,59 +1,79 @@
-import unittest
-from test_j_info import Calculator
+import pytest
 
 
-class TestCalculator(unittest.TestCase):
+class TestSchool:
 
-    @classmethod
-    def setUpClass(cls):
-        cls.calc = Calculator()
+    @pytest.mark.positive
+    def test_add_student_positive(self, students):
+        assert len(students.students) == 4
 
-    @classmethod
-    def tearDownClass(cls):
-        print('This is a unittest for calculator')
+    @pytest.mark.positive
+    def test_marks_one_student_positive(self, students):
+        assert students.marks(6, 5) == 'Larina '
 
-    def test_sum(self):
-        answer = self.calc.sum(15, 4)
-        self.assertEqual(answer, 19)
+    @pytest.mark.positive
+    def test_marks_some_students_positive(self, students):
+        assert students.marks(6, 7) == ('Popov Kozlova ')
 
-    def test_sub(self):
-        answer = self.calc.sub(26, 6)
-        self.assertEqual(answer, 20)
+    @pytest.mark.positive
+    @pytest.mark.parametrize("group, exp_res", [
+        (1, "Agrest "),
+        (3, "Kozlova "),
+        (2, "Popov Larina ")
+    ])
+    def test_group_positive(self, group, exp_res, students):
+        assert students.group(group) == exp_res
 
-    def test_mult(self):
-        answer = self.calc.mult(7, 3)
-        self.assertEqual(answer, 21)
+    @pytest.mark.positive
+    @pytest.mark.parametrize("automat, exp_res", [
+        (9, "Agrest "),
+        (6, "Agrest Popov Kozlova "),
+        (5, "Agrest Popov Larina Kozlova ")
+    ])
+    def test_automat_positive(self, automat, exp_res, students):
+        assert students.automat(automat) == exp_res
 
-    def test_div(self):
-        answer = self.calc.div(22, 11)
-        self.assertEqual(answer, 2)
+    @pytest.mark.negative
+    def test_add_student_negative(self, students):
+        assert len(students.students) != 8
 
-    def test_sum_not_eq(self):
-        answer = self.calc.sum(6, 10)
-        self.assertNotEqual(answer, 15)
+    @pytest.mark.negative
+    def test_marks_one_student_negative(self, students):
+        assert students.marks(9, 10) != 'Larina '
 
-    def test_sub_not_eq(self):
-        answer = self.calc.sub(33, 3)
-        self.assertNotEqual(answer, 36)
+    @pytest.mark.negative
+    def test_marks_some_students_negative(self, students):
+        assert students.marks(6, 7) != ('Agrest Larina ')
 
-    def test_mult_not_eq(self):
-        answer = self.calc.mult(8, 8)
-        self.assertNotEqual(answer, 60)
+    @pytest.mark.negative
+    @pytest.mark.parametrize("group, exp_res", [
+        (3, "Popov Larina "),
+        (1, "Kozlova "),
+        (2, "Agrest ")
+    ])
+    def test_group_negative(self, group, exp_res, students):
+        assert students.group(group) != exp_res
 
-    def test_div_not_eq(self):
-        answer = self.calc.div(55, 11)
-        self.assertNotEqual(answer, 7)
+    @pytest.mark.negative
+    @pytest.mark.parametrize("automat, exp_res", [
+        (9, "Popov "),
+        (6, "Popov Kozlova "),
+        (5, "Agrest Larina ")
+    ])
+    def test_automat_negative(self, automat, exp_res, students):
+        assert students.automat(automat) != exp_res
 
-    def test_div_y_zero(self):
-        with self.assertRaises(AssertionError) as er:
-            self.calc.div(7, 0)
-        self.assertEqual('y must not be 0', er.exception.args[0])
+    @pytest.mark.valid_input
+    def test_marks_args(self, students):
+        with pytest.raises(AssertionError):
+            students.marks(5)
 
-    def test_validation(self):
-        with self.assertRaises(AssertionError) as er:
-            self.calc.validation(15, '6')
-        self.assertEqual('x or y must be int', er.exception.args[0])
+    @pytest.mark.valid_input
+    def test_group_int(self, students):
+        with pytest.raises(AssertionError):
+            students.group([5])
 
-
-if __name__ == "__main__":
-    unittest.main()
+    @pytest.mark.valid_input
+    def test_automat_int(self, students):
+        with pytest.raises(AssertionError):
+            students.automat('9')
