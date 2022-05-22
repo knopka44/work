@@ -1,79 +1,45 @@
 import pytest
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from test_j_info import *
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
 
 
-class TestSchool:
+@pytest.fixture(scope='class')
+def driver():
+    driver_options = Options()
+    driver_options.add_argument('--headless')
+    driver = webdriver.Chrome(options=driver_options)
+    driver.maximize_window()
+    driver.get(url)
+    driver.implicitly_wait(10)
+    yield driver
+    driver.quit()
 
-    @pytest.mark.positive
-    def test_add_student_positive(self, students):
-        assert len(students.students) == 4
 
-    @pytest.mark.positive
-    def test_marks_one_student_positive(self, students):
-        assert students.marks(6, 5) == 'Larina '
+class TestDynamicControls:
 
-    @pytest.mark.positive
-    def test_marks_some_students_positive(self, students):
-        assert students.marks(6, 7) == ('Popov Kozlova ')
+    def test_checkbox_is_gone(self, driver):
+        checkbox = driver.find_element(by=By.XPATH, value=f'{checkbox_site}')
+        checkbox.click()
+        remove = driver.find_element(by=By.XPATH, value=f'{remove_site}')
+        remove.click()
+        message = driver.find_element(by=By.ID, value=f'{message_site}')
+        WebDriverWait(driver, 15).until(EC.visibility_of(message))
+        invisibility = WebDriverWait(driver, 15).until(
+            EC.invisibility_of_element(checkbox))
+        assert invisibility is True
 
-    @pytest.mark.positive
-    @pytest.mark.parametrize("group, exp_res", [
-        (1, "Agrest "),
-        (3, "Kozlova "),
-        (2, "Popov Larina ")
-    ])
-    def test_group_positive(self, group, exp_res, students):
-        assert students.group(group) == exp_res
+    def test_input_disabled(self, driver):
+        input_text = driver.find_element(by=By.XPATH, value=f'{input_site}')
+        assert input_text.get_attribute('disabled') == 'true'
 
-    @pytest.mark.positive
-    @pytest.mark.parametrize("automat, exp_res", [
-        (9, "Agrest "),
-        (6, "Agrest Popov Kozlova "),
-        (5, "Agrest Popov Larina Kozlova ")
-    ])
-    def test_automat_positive(self, automat, exp_res, students):
-        assert students.automat(automat) == exp_res
-
-    @pytest.mark.negative
-    def test_add_student_negative(self, students):
-        assert len(students.students) != 8
-
-    @pytest.mark.negative
-    def test_marks_one_student_negative(self, students):
-        assert students.marks(9, 10) != 'Larina '
-
-    @pytest.mark.negative
-    def test_marks_some_students_negative(self, students):
-        assert students.marks(6, 7) != ('Agrest Larina ')
-
-    @pytest.mark.negative
-    @pytest.mark.parametrize("group, exp_res", [
-        (3, "Popov Larina "),
-        (1, "Kozlova "),
-        (2, "Agrest ")
-    ])
-    def test_group_negative(self, group, exp_res, students):
-        assert students.group(group) != exp_res
-
-    @pytest.mark.negative
-    @pytest.mark.parametrize("automat, exp_res", [
-        (9, "Popov "),
-        (6, "Popov Kozlova "),
-        (5, "Agrest Larina ")
-    ])
-    def test_automat_negative(self, automat, exp_res, students):
-        assert students.automat(automat) != exp_res
-
-    @pytest.mark.valid_input
-    def test_marks_args(self, students):
-        with pytest.raises(AssertionError):
-            students.marks(5)
-
-    @pytest.mark.valid_input
-    def test_group_int(self, students):
-        with pytest.raises(AssertionError):
-            students.group([5])
-
-    @pytest.mark.valid_input
-    def test_automat_int(self, students):
-        with pytest.raises(AssertionError):
-            students.automat('9')
+    def test_input_enabled(self, driver):
+        enable = driver.find_element(by=By.XPATH, value=f'{enable_site}')
+        enable.click()
+        message = driver.find_element(by=By.ID, value=f'{message_site}')
+        WebDriverWait(driver, 15).until(EC.visibility_of(message))
+        input_text = driver.find_element(by=By.XPATH, value=f'{input_site}')
+        assert input_text.get_attribute('disabled') is None
