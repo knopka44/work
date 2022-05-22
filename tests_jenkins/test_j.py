@@ -4,12 +4,16 @@ from selenium.webdriver.common.by import By
 from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-import warnings
 
 
 @pytest.fixture(scope='class')
 def driver():
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--window-size=1420,1080')
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--disable-gpu')
+    driver = webdriver.Chrome(chrome_options=chrome_options)
     driver = webdriver.Chrome()
     driver.maximize_window()
     driver.get(url)
