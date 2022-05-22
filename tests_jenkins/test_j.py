@@ -1,23 +1,21 @@
 import pytest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-
 from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import warnings
 
 
 @pytest.fixture(scope='class')
 def driver():
-    driver_options = webdriver.ChromeOptions()
-    prefs = {"profile.default_content_setting_values.notifications: 2"}
-    driver_options.add_experimental_option('prefs', prefs)
-    driver_options.add_argument("user-agent=Mozilla/5.0 (Windows Phone 10.0; Android 4.2.1; Microsoft; Lumia 640 XL LTE) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Mobile Safari/537.36 Edge/12.10166")
-    driver_options.headless = True
-    s = Service("/home/valerya/PycharmProjects/My_homework/tests/chromedriver")
-    driver = webdriver.Chrome(service=s, options=driver_options)
+    options = webdriver.ChromeOptions()
+    options.add_argument('--no-sandbox')
+    options.add_argument('--window-size=1420,1080')
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--remote-debugging-port=9222')
+    driver = webdriver.Chrome(options=options)
     driver.maximize_window()
     driver.implicitly_wait(10)
     driver.get(url)
