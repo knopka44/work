@@ -15,6 +15,7 @@ def driver():
     driver_options.add_argument('--no-sandbox')
     driver_options.add_argument('disable-infobars')
     driver_options.add_argument("--disable-extensions")
+    driver_options.add_argument("--disable-gpu")
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     driver = webdriver.Chrome(options=driver_options)
     driver.maximize_window()
