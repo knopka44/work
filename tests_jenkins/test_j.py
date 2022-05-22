@@ -1,20 +1,22 @@
 import pytest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
+
 from test_j_info import *
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import warnings
 
 
 @pytest.fixture(scope='class')
 def driver():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--window-size=1420,1080')
     chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--disable-gpu')
-    driver = webdriver.Chrome(chrome_options=chrome_options)
-    driver = webdriver.Chrome()
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    driver = webdriver.Chrome(executable_path=ChromeDriverManager().install(),
+                              options=chrome_options)
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
