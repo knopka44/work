@@ -19,7 +19,7 @@ def driver():
     # driver_options.add_argument("--disable-dev-shm-usage")
     driver_options.binary_location = '/usr/bin/google-chrome'
     warnings.filterwarnings("ignore", category=DeprecationWarning)
-    driver = webdriver.Chrome('https://github.com/agrestvaleria/homework/blob/c7699eeac3b1d3ccae5b63f41af6ccc06f0076fb/chromedriver', options=driver_options)
+    driver = webdriver.Chrome(options=driver_options)
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
