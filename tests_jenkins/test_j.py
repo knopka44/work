@@ -17,9 +17,9 @@ def driver():
     # driver_options.add_argument("--disable-extensions")
     # driver_options.add_argument("--disable-gpu")
     # driver_options.add_argument("--disable-dev-shm-usage")
-    driver_options.binary_location = '/usr/bin/google-chrome-stable'
+    driver_options.binary_location = '/usr/bin/google-chrome'
     warnings.filterwarnings("ignore", category=DeprecationWarning)
-    driver = webdriver.Chrome(options=driver_options)
+    driver = webdriver.Chrome('/home/valerya/PycharmProjects/My_homework/tests/chromedriver', options=driver_options)
     driver.maximize_window()
     driver.get(url)
     driver.implicitly_wait(10)
