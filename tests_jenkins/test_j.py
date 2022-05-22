@@ -10,13 +10,14 @@ import os
 
 @pytest.fixture(scope='class')
 def driver():
+    os.environ['DISPLAY'] = ':20'
     options = webdriver.ChromeOptions()
-    os.environ['DISPLAY'] = ':20.0'
+    options.add_argument('-disable-dev-shm-usage')
     options.add_argument('--no-sandbox')
-    options.add_argument('--window-size=1420,1080')
+    # options.add_argument('--window-size=1420,1080')
     options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--remote-debugging-port=9222')
+    # options.add_argument('--disable-gpu')
+    # options.add_argument('--remote-debugging-port=9222')
     driver = webdriver.Chrome(options=options)
     driver.implicitly_wait(10)
     driver.get(url)
