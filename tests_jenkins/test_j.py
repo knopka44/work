@@ -13,7 +13,7 @@ def driver():
     # options.add_argument('--no-sandbox')
     # options.add_argument('--window-size=1420,1080')
     options.add_argument('--headless')
-    options.add_argument('--user-data-dir=/home/valerya/.config/google-chrome/Default')
+    options.add_argument('--user-data-dir=/home/valerya/.config/google-chrome/Profile1')
     # options.add_argument('--disable-gpu')
     # options.add_argument('--remote-debugging-port=9222')
     driver = webdriver.Chrome(options=options)
