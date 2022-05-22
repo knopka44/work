@@ -17,7 +17,7 @@ def driver():
     # driver_options.add_argument("--disable-extensions")
     # driver_options.add_argument("--disable-gpu")
     # driver_options.add_argument("--disable-dev-shm-usage")
-    driver_options.binary_location = '/usr/bin/google-chrome'
+    driver_options.binary_location = '/usr/bin/'
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     driver = webdriver.Chrome(options=driver_options)
     driver.maximize_window()
