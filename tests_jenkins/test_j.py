@@ -11,6 +11,7 @@ from selenium.webdriver.chrome.options import Options
 def driver():
     driver_options = Options()
     driver_options.add_argument('--headless')
+    driver_options.add_argument('--no-sandbox')
     driver = webdriver.Chrome(options=driver_options)
     driver.maximize_window()
     driver.get(url)
