@@ -16,7 +16,7 @@ def driver():
     driver_options.add_experimental_option('prefs', prefs)
     driver_options.add_argument("user-agent=Mozilla/5.0 (Windows Phone 10.0; Android 4.2.1; Microsoft; Lumia 640 XL LTE) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Mobile Safari/537.36 Edge/12.10166")
     driver_options.headless = True
-    s = Service("chromedriver")
+    s = Service("/home/valerya/PycharmProjects/My_homework/tests/chromedriver")
     driver = webdriver.Chrome(service=s, options=driver_options)
     driver.maximize_window()
     driver.implicitly_wait(10)
