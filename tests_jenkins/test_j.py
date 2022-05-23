@@ -89,7 +89,7 @@ class DynamicControlsPage(BasePage):
 @pytest.fixture(scope='class')
 def driver():
     chrome_options = Options()
-    # chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     browser = webdriver.Chrome(executable_path=ChromeDriverManager().install(), options=chrome_options)
