@@ -33,7 +33,7 @@ def web_driver():
     # options.add_argument(f"--data-path={mkdtemp()}")
     # options.add_argument(f"--disk-cache-dir={mkdtemp()}")
     options.add_argument("--remote-debugging-port=9222")
-    driver = webdriver.Chrome(service=Service('chromedriver'), options=options)
+    driver = webdriver.Chrome(options=options)
 
     # driver = webdriver.Chrome( options=options, service_args=["--verbose", "--log-path=/home/valerya/PycharmProjects/qc1.log"])
     driver.maximize_window()
