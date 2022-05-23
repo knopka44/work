@@ -19,7 +19,7 @@ def web_driver():
     # options.add_argument('--headless')
     # options.binary_location = "/usr/bin/chromium-browser"
     #
-    service = 'chromedriver'
+    service = '/usr/local/bin/chromedriver'
     options = webdriver.ChromeOptions()
     options.binary_location = '/usr/bin/chromium-browser'
     options.add_argument('--headless')
