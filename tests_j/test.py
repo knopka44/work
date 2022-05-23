@@ -1,7 +1,7 @@
 from selenium import webdriver
 import pytest
 from selenium.webdriver.chrome.options import Options
-
+from selenium.webdriver.chrome.service import Service
 
 @pytest.fixture(scope='session')
 def web_driver():
@@ -9,7 +9,7 @@ def web_driver():
     options.add_argument('--no-sandbox')
     options.add_argument('--headless')
     options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(options=options, service_args=["--verbose", "--log-path=/home/valerya/PycharmProjects/qc1.log"])
+    driver = webdriver.Chrome(service=Service('chromedriver'), options=options, service_args=["--verbose", "--log-path=/home/valerya/PycharmProjects/qc1.log"])
     driver.maximize_window()
     driver.get("https://www.google.com/")
     driver.implicitly_wait(10)
