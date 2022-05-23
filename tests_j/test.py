@@ -9,7 +9,7 @@ def web_driver():
     options.add_argument('--no-sandbox')
     options.add_argument('--headless')
     options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(options=options)
+    driver = webdriver.Chrome(options=options, service_args=["--verbose", "--log-path=/home/valerya/PycharmProjects/qc1.log"])
     driver.maximize_window()
     driver.get("https://www.google.com/")
     driver.implicitly_wait(10)
