@@ -19,7 +19,7 @@ def web_driver():
     # options.add_argument('--headless')
     # options.binary_location = "/usr/bin/chromium-browser"
     #
-    options = webdriver.ChromeOptions()
+    options = Options()
     options.binary_location = '/usr/bin/chromium-browser'
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -33,7 +33,7 @@ def web_driver():
     # options.add_argument(f"--data-path={mkdtemp()}")
     # options.add_argument(f"--disk-cache-dir={mkdtemp()}")
     options.add_argument("--remote-debugging-port=9222")
-    driver = webdriver.Chrome(service=Service('chromedriver'),
+    driver = webdriver.Chrome(service=Service('/snap/bin/chromium.chromedriver'),
                               options=options, service_args=["--verbose", "--log-path=/home/valerya/PycharmProjects/qc1.log"])
 
     # driver = webdriver.Chrome( options=options, service_args=["--verbose", "--log-path=/home/valerya/PycharmProjects/qc1.log"])
