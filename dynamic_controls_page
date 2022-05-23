@@ -1,0 +1,699 @@
+# Copyright (C) 2018 Synesis LLC. All rights reserved.
+# Author Eugene Sinyavski <eugene.sinyavski@synesis.ru>, Synesis LLC www.synesis.ru.
+import datetime
+import ftplib
+import json
+import logging
+import os
+import random
+import string
+import subprocess
+import sys
+import time
+
+from fabric.api import *
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from mlflow.tracking.client import MlflowClient
+from tools.va_common.constants.git import GitUrl, GIT_PROJECTS_IDS
+from common.constants.va import MODULES
+from tools.va_common.constants.clt import CLT_PATHS
+from common.constants.test import Resolution
+from common.services.file_manager import FileManager
+
+
+GIT_PRIVATE_TOKEN = os.environ['GIT_PRIVATE_TOKEN']
+GIT_FACES_LINK_FRLib = "https://x-token-auth:{private_token}@git.synesis.ru/" \
+                       "VA-Face-recognition/FRLib.git".format(private_token=GIT_PRIVATE_TOKEN)
+
+VA_REPOS_DIR = os.environ['VA_REPOS_DIR']
+VIDEOS_PATH = os.environ['VIDEOS_PATH']
+CONFIGS_PATH = os.environ['CONFIGS_PATH']
+
+WORK_DIR = os.getcwd().replace(' ', '\ ')
+PROJECT_PATH_DOCKER = "{}/tools".format(os.environ['PROJECT_NAME'])
+RESOURCES_TOOL_NAME = os.environ['RESOURCES_TOOL_NAME']
+DETECTION_TOOL_NAME = os.environ['DETECTION_TOOL_NAME']
+REMOTE_REPORT_PATH = os.environ['REMOTE_REPORT_PATH']
+REPOS_BUILD_PATH = "{}/{}".format(WORK_DIR, VA_REPOS_DIR)
+RESOURCES_TOOL_PATH_LOCAL = "{}/{}".format(WORK_DIR, RESOURCES_TOOL_NAME)
+DETECTION_TOOL_PATH_LOCAL = "{}/{}".format(WORK_DIR, DETECTION_TOOL_NAME)
+RESOURCES_TOOL_PATH_DOCKER = "{}/{}".format(PROJECT_PATH_DOCKER, RESOURCES_TOOL_NAME)
+DETECTION_TOOL_PATH_DOCKER = "{}/{}".format(PROJECT_PATH_DOCKER, DETECTION_TOOL_NAME)
+VOLUME_DETECTION_TOOL = "{}:/{}".format(DETECTION_TOOL_PATH_LOCAL, DETECTION_TOOL_PATH_DOCKER)
+VOLUME_COMMON = "{}/../common:/{}/common".format(WORK_DIR, os.environ['PROJECT_NAME'])
+VOLUME_VA_COMMON = "{}/va_common:/{}/va_common".format(WORK_DIR, PROJECT_PATH_DOCKER)
+VOLUME_VIDEOS_DETECTION = "{}/{}/:/{}/videos".format(
+    VIDEOS_PATH, DETECTION_TOOL_NAME, DETECTION_TOOL_PATH_DOCKER)
+VOLUME_TIME = "/etc/localtime:/etc/localtime"
+VOLUME_CONFIGS_PATH = "{}/{}".format(VIDEOS_PATH, CONFIGS_PATH)
+OUTPUT_DIR = "{}/{}".format(RESOURCES_TOOL_PATH_LOCAL, REMOTE_REPORT_PATH)
+
+ftp_ip = os.environ['FTP_IP']
+ftp_user = os.environ['FTP_USER']
+ftp_password = os.environ['FTP_PASSWORD']
+FTP_CONNECTION_CREDS = ftp_ip, ftp_user, ftp_password, 10, 21
+
+image = None
+container_name = None
+project_dir = {
+    'BasicTrack': 'motiondetector',
+    'NumberTrack': 'lpr',
+    'FaceTrack': 'fr3',
+    'PddTrack': 'pdd',
+    'SideTrack': 'sva',
+    'SmokeTrack': 'smokedetector',
+    'TrafficTrack': 'traffic',
+    'CrowdAlarm': 'crowddetector'
+}
+
+
+@task
+def deploy(tool, module, build_version):
+    """
+    Deploy the docker image with the VA clt build for the specified module.
+
+    Usage:
+        fab deploy:tool=va_detection,module=SideTrack,build_version=1.1.1-HEAD-5f2af8b-clt.tar.gz
+    """
+    build_dir = os.environ['VA_REPOS_DIR']
+    if not os.path.exists(build_dir):
+        os.mkdir(build_dir)
+        os.chown(build_dir, os.getuid(), os.getgid())
+
+    download_clt_build(module, build_version)
+    build(tool, module)
+
+
+@task
+def build(tool, module):
+    """
+    Build the docker image for the specific tool and module.
+    The tool can be:
+        va_resources
+        va_detection
+
+    Usage:
+        fab build:tool=va_resources,module=SideTrack
+    """
+    if tool not in [RESOURCES_TOOL_NAME, DETECTION_TOOL_NAME]:
+        raise ValueError("Incorrect tool specified, use one of the following:\n{}".format(
+            "\n".join([RESOURCES_TOOL_NAME, DETECTION_TOOL_NAME])))
+
+    local("bash -c \"if [ -z `(docker images {image} -q)` ]; then \
+        docker build -t {image} --build-arg tool={tool} .; fi\"".format(
+        image="{}".format(tool), tool=tool))
+
+    global image, container_name
+    image = "{}_{}".format(tool, module.lower())
+    with settings(warn_only=True):
+        container_name = get_container_name(module)
+
+        local("docker run --name {container} {base_image} \
+              ".format(
+            container=container_name,
+            base_image=tool
+        ))
+        docker_commit()
+
+
+@task
+def update_gitmodules(gitmodules):
+    modules = FileManager.get_data_from_file(gitmodules).split("\n")
+
+    for module in modules:
+        if "url = " in module and "github" not in module and \
+                "x-token-auth:{}".format(GIT_PRIVATE_TOKEN) not in module:
+            modules[modules.index(module)] = (
+                "{0} = https://x-token-auth:{2}@{1}".format(
+                    *module.split(' = '), GIT_PRIVATE_TOKEN
+                )
+            )
+
+    return "\n".join(modules)
+
+
+@task
+def checkout_faces(tool, branch=None, commit=None):
+    """
+    Checkout/Update the latest build for the FaceTrack for the specified tool.
+
+    Usage:
+        fab checkout_faces:tool=va_resources
+    """
+    global image, container_name
+
+    image = "{}_{}".format(tool, MODULES.FACE_TRACK).lower()
+    module = MODULES.FACE_TRACK_FRLIB
+    repo_link = GIT_FACES_LINK_FRLib
+    gitmodules = ".gitmodulesfrlib"
+    with settings(warn_only=True):
+        local("mkdir -p {module};cd {module};git clone -b {branch} "
+              "{repo_link} .".format(module=module, repo_link=repo_link,
+                                     branch="master" if not branch else branch))
+        local("cat <<EOF > {module}/.gitmodules\n{modules}\nEOF".format(
+            modules=update_gitmodules(gitmodules), module=module))
+        local("cd {module};git checkout {commit}".format(
+            module=module, commit=commit))
+        local("cd {module};git submodule update --init;".format(module=module))
+        container_name = get_container_name(module)
+        local("docker run --name {container} {image} bash -c 'rm -rf {repos}/{module}'".format(
+            container=container_name, image=image, repos=VA_REPOS_DIR, module=module))
+        local("docker cp {module} {container}:/{project_path}/repos".format(
+            container=container_name, project_path=PROJECT_PATH_DOCKER, module=module))
+        docker_commit()
+        container_name = get_container_name(module)
+        local("docker run --name {container} {image} bash -c \
+            'cd {repos}/{module}; git log -1 > version.txt'".format(
+            container=container_name, image=image, repos=VA_REPOS_DIR, module=module))
+        docker_commit()
+        local("rm -Rf {}".format(module))
+
+
+@task
+def build_faces_clt(tool):
+    """
+    Build the clt for the FaceTrack.
+
+    Usage:
+        fab build_faces_clt:tool=va_resources
+    """
+    global image, container_name
+    image = "{}_{}".format(tool, MODULES.FACE_TRACK).lower()
+    with settings(warn_only=True):
+        container_name = get_container_name(MODULES.FACE_TRACK)
+        local("docker run {image} bash -c \
+            'mkdir {repos}/{module}/{clt_path};cd {repos}/{module}/{clt_path};\
+            cmake ../;make -j6'".format(
+            image=image, repos=VA_REPOS_DIR, module=MODULES.FACE_TRACK_FRLIB,
+            clt_path=CLT_PATHS[MODULES.FACE_TRACK_FRLIB]))
+        docker_commit()
+
+
+def get_container_name(module):
+    return "{}_{}".format(
+        "".join(random.choice(string.ascii_lowercase) for _ in range(len(module))), module)
+
+
+def get_clt_job_with_artifacts(module, branch=None, commit=None):
+    """
+    Checking the available clt artifacts and retrying the job if needed.
+
+    Usage:
+        fab get_clt_job_with_artifacts:module=SideTrack
+    """
+
+    with hide('output'):
+        project_id = GIT_PROJECTS_IDS[module]
+        success_jobs = json.loads(local("curl -g --header \"PRIVATE-TOKEN: {token}\" \"{url}\"".format(
+            token=GIT_PRIVATE_TOKEN, url=GitUrl.LATEST_SUCCESS_JOBS.format(project_id=project_id)), capture=True))
+        if not success_jobs:
+            raise ValueError("There are no success clt jobs from latest 100 jobs.")
+        for job in success_jobs:
+            comparing_list = [job['name'] == "build-clt", job['status'] == "success"]
+            if branch:
+                comparing_list.append(job['ref'] == branch)
+            if commit:
+                comparing_list.append(job['commit']['short_id'] == commit)
+            if len([True for expr in comparing_list if expr]) == len(comparing_list):
+                success_job_clt = job
+                break
+        else:
+            raise ValueError("The success build-clt job not found.")
+
+        if not success_job_clt.get('artifacts_file'):
+            print("Retrying the job".center(100, "="))
+            retried_job = json.loads(local("curl --request POST --header \"PRIVATE-TOKEN: {token}\" \"{url}\"".format(
+                token=GIT_PRIVATE_TOKEN,
+                url=GitUrl.RETRY_JOB.format(project_id=project_id, job_id=success_job_clt['id'])), capture=True))
+            for _ in range(60):
+                retried_job = json.loads(
+                    local("curl --header \"PRIVATE-TOKEN: {token}\" \"{url}\"".format(
+                        token=GIT_PRIVATE_TOKEN,
+                        url=GitUrl.SINGLE_JOB.format(project_id=project_id, job_id=retried_job['id'])), capture=True))
+                print("The retried job status: {}".format(retried_job['status']))
+                if retried_job['status'] == 'success':
+                    print("The job is ready".center(100, "="))
+                    return retried_job
+                print("Waiting...")
+                time.sleep(60)
+            else:
+                ValueError("The job is not retried after 60 minutes waiting")
+        else:
+            return success_job_clt
+
+
+def save_job_version(module, job):
+    """
+    Saving the job's commit info to the file
+    """
+    global container_name
+    container_name = get_container_name(module)
+    local("docker run --name {container} {image} bash -c \
+        'cd {repos}/{module}; printf \"{branch}\n{short_id}\n{created_at}\" > version.txt'".format(
+        container=container_name, image=image, repos=VA_REPOS_DIR, module=module, branch=job['ref'],
+        short_id=job['commit']['short_id'], created_at=job['commit']['created_at']))
+    docker_commit()
+
+
+@task
+def download_clt_build(module, build_version):
+    """
+    Download latest success clt artifacts for the specified module
+
+    Usage:
+        fab download_clt_build:tool=va_resources,module=SideTrack
+    """
+    download_dir = "{}/{}".format(REPOS_BUILD_PATH, module)
+    local("rm -rf {repos_build_path}/*; mkdir {download_dir}; \
+            scp kipod-binary@172.20.8.122:~/kva/{clt_module}/{build_file} {download_dir}/{build_file}; \
+            tar xvzf {download_dir}/{build_file} -C repos/{module}".format(
+        repos_build_path=REPOS_BUILD_PATH,
+        download_dir=download_dir,
+        clt_module=project_dir[module],
+        module=module,
+        build_file=build_version))
+
+
+@task
+def transfer_image(tool, module):
+    """
+    Moving the image with the build to the Pre-prod VA machine
+
+    Usage:
+        fab build:tool=va_resources,module=SideTrack
+        scp test.txt svc_ci_qa_preprod@10.205.98.202:/var/lib/docker/
+    """
+    global image
+    image = "{}_{}".format(tool, module.lower())
+    with lcd(os.environ["CLIENT_RESOURCES_STORAGE_PATH"]):
+        # Archiving the docker image
+        local("docker save -o {image}.tar {image}".format(image=image))
+        # Copying the tar archive to the shellbox
+        local("scp {image}.tar {shellbox_host}:{dir}".format(
+            image=image, shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'],
+            dir=os.environ['PREPROD_SHELLBOX_STORAGE_PATH']))
+        # Copying the tar archive from the shellbox to the VA machine
+        local("ssh {shellbox_host} scp {dir}/{image}.tar {va_host}:~/".format(
+            shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'],
+            dir=os.environ['PREPROD_SHELLBOX_STORAGE_PATH'], image=image,
+            va_host=os.environ['PREPROD_VA_HOST']))
+
+
+def check_args(module, resolution):
+    if module and module not in MODULES.MODULES_LIST:
+        raise ValueError("Incorrect module specified, use one of the following:\n{}".format(
+            "\n".join(MODULES.MODULES_LIST)))
+    if resolution and resolution not in Resolution.RESOLUTIONS_LIST:
+        raise ValueError("Incorrect resolution specified, use one of the following:\n{}".format(
+            "\n".join(Resolution.RESOLUTIONS_LIST)))
+
+
+@task
+def run_test_resources_remote(module, build_dir=None, resolution='', keys=''):
+    check_args(module, resolution)
+    global image
+    if keys:
+        keys_file = "keys.txt"
+        local("echo {keys} > {file_name}".format(
+            keys=keys.replace("=", "\="), file_name=keys_file))
+        local("scp keys.txt {shellbox_host}:/home/svc_ci_qa_preprod/ ; rm {file_name}".format(
+            shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'], file_name=keys_file))
+        local("scp {shellbox_host}:/home/svc_ci_qa_preprod/keys.txt {va_host}:".format(
+            shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'], va_host=os.environ['PREPROD_VA_HOST']))
+        local("ssh {shellbox_host} rm {file_name}".format(
+            shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'], file_name=keys_file))
+    image = "{}_{}".format(RESOURCES_TOOL_NAME, module.lower())
+    # Checking the image
+    local("ssh {shellbox_host} ssh {va_host} ./check_image.sh {tool} {module}".format(
+        shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'],
+        va_host=os.environ['PREPROD_VA_HOST'],
+        tool=RESOURCES_TOOL_NAME, module=module.lower()))
+    # Running the test
+    local("ssh {shellbox_host} ssh {va_host} ./run_va_resources.sh -m {module} "
+          "-r {resolution} ".format(shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'],
+                                    va_host=os.environ['PREPROD_VA_HOST'], module=module, resolution=resolution))
+    # Getting the report
+    local("ssh {shellbox_host} ./copy_va_resources_last_report_to_shellbox.sh".format(
+        shellbox_host=os.environ['PREPROD_SHELLBOX_HOST']))
+    if build_dir:
+        local("mkdir '{build_dir}'".format(build_dir=build_dir))
+        local("scp {shellbox_host}:{shellbox_home}/report* '{build_dir}'/".format(
+            shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'],
+            shellbox_home=os.environ['PREPROD_SHELLBOX_HOME_PATH'],
+            build_dir=build_dir, output=REMOTE_REPORT_PATH))
+    else:
+        with lcd(RESOURCES_TOOL_PATH_LOCAL):
+            local("pwd; scp {shellbox_host}:{shellbox_home}/report* {output}/".format(
+                shellbox_host=os.environ['PREPROD_SHELLBOX_HOST'],
+                shellbox_home=os.environ['PREPROD_SHELLBOX_HOME_PATH'],
+                output=REMOTE_REPORT_PATH))
+    with settings(warn_only=True):
+        local("ssh {shellbox_host} rm report*".format(
+            shellbox_host=os.environ['PREPROD_SHELLBOX_HOST']))
+
+
+@task
+def run_test_resources(module=None, build_version=None, resolution=None, key=None, execution_time=None,
+                       cpu_limits=None, memory_limits=None, main_next_frame=None, build_dir=None):
+    """
+    Running the `VA resources` test.
+
+    Usage:
+    For a specified module:
+        fab run_test_resources:module=SideTrack
+    For a specified module and resolution:
+        fab run_test_resources:module=PddTrack,build_version=pddtrack-1.8.1-master,resolution=HD,
+        key=high,execution_time=2000,cpu_limits=1200,memory_limits=250,main_next_frame=20
+    """
+
+    check_args(module, resolution)
+
+    if build_dir:
+        jenkins_dir = "{}/{}".format(WORK_DIR, build_dir)
+        local("python3 va_resources/runner.py --module={module} --build_version={build_version} "
+              "--resolution={resolution} --load_key={load_key} --execution_time={execution_time} "
+              "--cpu_limits={cpu_limits} --memory_limits={memory_limits} "
+              "--main_next_frame={main_next_frame} --build_dir={build_dir};".format(module=module,
+                                                                                    build_version=build_version,
+                                                                                    resolution=resolution,
+                                                                                    load_key=key,
+                                                                                    execution_time=execution_time,
+                                                                                    cpu_limits=cpu_limits,
+                                                                                    memory_limits=memory_limits,
+                                                                                    main_next_frame=main_next_frame,
+                                                                                    build_dir=jenkins_dir
+                                                                                    ))
+
+    else:
+        local("python3 va_resources/runner.py --module={module} --build_version={build_version} "
+              "--resolution={resolution} --load_key={load_key} --execution_time={execution_time} "
+              "--cpu_limits={cpu_limits} --memory_limits={memory_limits} "
+              "--main_next_frame={main_next_frame} "
+              "--build_dir=va_resources/output;".format(module=module, build_version=build_version,
+                                                        resolution=resolution, load_key=key,
+                                                        execution_time=execution_time, cpu_limits=cpu_limits,
+                                                        memory_limits=memory_limits, main_next_frame=main_next_frame))
+
+
+@task
+def run_test_detection(module: str = None, build_dir: str = None, list_rule: str = None):
+    """
+    Running the `VA detection` test.
+
+    Usage:
+    For specified modules:
+        fab run_test_detection:module=FaceTrack
+        fab run_test_detection:module='NumberTrack;PddTrack'
+        fab run_test_detection:module=PddTrack,list_rule=mng.txt
+    For all modules:
+        fab run_test_detection
+    """
+
+    if build_dir:
+        if module == 'CrowdAlarm':
+            volume_va_settings = \
+                "-v {work_dir}/'{build_dir}':/{project}/data " \
+                "-v {detection_tool_path}/{detection_settings_path}:/{project}/data/{detection_settings_path} " \
+                "-e SETTINGS_DIR=/{project}/data/".format(
+                    work_dir=WORK_DIR,
+                    build_dir=build_dir,
+                    module=module,
+                    project=os.environ['PROJECT_NAME'],
+                    detection_tool_path=DETECTION_TOOL_PATH_LOCAL,
+                    detection_settings_path="va_settings/{module}".format(module=module)
+                )
+        else:
+            volume_va_settings = \
+                "-v {work_dir}/'{build_dir}':/{project}/data -e SETTINGS_DIR=/{project}/data/".format(
+                    work_dir=WORK_DIR,
+                    build_dir=build_dir,
+                    module=module,
+                    project=os.environ['PROJECT_NAME']
+                )
+    else:
+        volume_va_settings = ''
+
+    if list_rule:
+        local(
+            "docker run -v {volume_tool} -v {volume_common} -v {volume_va_common} \
+            -v {volume_videos} -v {volume_time} {volume_va_settings} \
+            -v {repos_dir}:/va_tools/tools/repos \
+            --user=$(id -u $USER):$(id -g $USER) \
+            --rm {image} bash -c 'cd {tool_path}; \
+            python3 runner.py --module {module} --list_rule {list_rule}'".format(
+                repos_dir=REPOS_BUILD_PATH,
+                volume_tool=VOLUME_DETECTION_TOOL,
+                volume_common=VOLUME_COMMON,
+                volume_va_common=VOLUME_VA_COMMON,
+                volume_videos=VOLUME_VIDEOS_DETECTION,
+                volume_time=VOLUME_TIME,
+                volume_va_settings=volume_va_settings,
+                image="{}_{}".format(DETECTION_TOOL_NAME, module.lower()),
+                tool_path=DETECTION_TOOL_NAME,
+                module=module,
+                list_rule=list_rule
+            )
+        )
+
+    else:
+        local(
+            "docker run -v {volume_tool} -v {volume_common} -v {volume_va_common} \
+            -v {volume_videos} -v {volume_time} {volume_va_settings} \
+            -v {repos_dir}:/va_tools/tools/repos \
+            --user=$(id -u $USER):$(id -g $USER) \
+            --rm {image} bash -c 'cd {tool_path}; \
+            python3 runner.py --module {module}'".format(
+                repos_dir=REPOS_BUILD_PATH,
+                volume_tool=VOLUME_DETECTION_TOOL,
+                volume_common=VOLUME_COMMON,
+                volume_va_common=VOLUME_VA_COMMON,
+                volume_videos=VOLUME_VIDEOS_DETECTION,
+                volume_time=VOLUME_TIME,
+                volume_va_settings=volume_va_settings,
+                image="{}_{}".format(DETECTION_TOOL_NAME, module.lower()),
+                tool_path=DETECTION_TOOL_NAME,
+                module=module
+            )
+        )
+
+
+@task
+def move_artifacts_on_mlflow(module, report_path, build_version, list_rule=None):
+    """ Move artifacts on Mlflow server. """
+    mlflow_username = os.environ.get('MLFLOW_USER')
+    mlflow_password = os.environ.get('MLFLOW_PASSWORD')
+    mlflow_host = os.environ.get('MLFLOW_SERVER')
+    tracking_uri = "http://{mlflow_username}:{mlflow_password}@{mlflow_host}".format(
+        mlflow_username=mlflow_username,
+        mlflow_password=mlflow_password,
+        mlflow_host=mlflow_host
+    )
+
+    try:
+        client = MlflowClient(tracking_uri)
+    except Exception as E:
+        print(E)
+        raise RuntimeError('Failed to set up MLflow. Check .env. Problem in URI? --> {}'.format(tracking_uri))
+
+    experiment = client.get_experiment_by_name("VA_{}".format(module))
+    experiment_id = experiment.experiment_id
+    version = build_version[:-11]
+    print(version)
+
+    run_name = "{}".format(version)
+
+    program_run = client.create_run(experiment_id, tags={
+        'mlflow.runName': run_name,
+        'mlflow.source.name': 'Jenkins',
+        'mlflow.source.git.commit': subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD']
+        ).decode('ascii').strip()
+    })
+    run_id = program_run.info.run_id
+
+    file_list = os.listdir(report_path)
+    for file in file_list:
+        if file.__contains__("__"):
+            report = os.path.join(report_path, file)
+            try:
+                client.log_artifacts(run_id, "{}".format(report), artifact_path="states")
+            except UnicodeEncodeError:
+                client.log_artifacts(run_id, "{}".format(report.encode('utf8')), artifact_path="states")
+
+            df = FileManager.read_from_csv_report(report)
+
+            list_rule = df[2]
+            index_count = df[4]
+            tp_count = df[5]
+            fp_count = df[6]
+            fn_count = df[7]
+            total_count = df[8]
+            tp = df[9]
+            fp = df[10]
+            fn = df[11]
+            recall = df[12]
+            precision = df[13]
+            precision_duplicate = df[14]
+
+            client.log_param(run_id, 'List', list_rule)
+            client.log_metric(run_id, 'Index count', index_count)
+            client.log_metric(run_id, 'TP count', tp_count)
+            client.log_metric(run_id, 'FP count', fp_count)
+            client.log_metric(run_id, 'FN count', fn_count)
+            client.log_metric(run_id, 'Total count', total_count)
+            client.log_metric(run_id, 'TP', tp)
+            client.log_metric(run_id, 'FP', fp)
+            client.log_metric(run_id, 'FN', fn)
+            client.log_metric(run_id, 'Recall', recall)
+            client.log_metric(run_id, 'Precision', precision)
+            client.log_metric(run_id, 'Precision Duplicate', precision_duplicate)
+
+            # try:
+            #     precision = df[3]
+            #     precision_duplicate = df[4]
+            #
+            #     if false_positive is not None:
+            #         client.log_metric(run_id, 'Precision', precision)
+            #     if precision_duplicate is not None:
+            #         client.log_metric(run_id, 'Precision Duplicate', precision_duplicate)
+            # except IndexError:
+            #     continue
+
+    client.set_terminated(run_id)
+    logging.log(
+        logging.INFO,
+        "Everything logged successfully! Go, and check: "
+        "http://{mlflow_host}/#/experiments/{experiment_id}/runs/{run_id}".format(
+            mlflow_host=mlflow_host,
+            experiment_id=experiment_id,
+            run_id=run_id
+        )
+    )
+
+
+@task
+def move_report_on_ftp(module, report_path, tool, build_version, list_rule=None):
+    """ Move a test execution report on the FTP server. """
+    file_list = os.listdir(report_path)
+    for file in file_list:
+        if file.__contains__("__"):
+            report = os.path.join(report_path, file)
+
+            zip_report = "{}.zip".format(report)
+            local(
+                "zip -r '{zip_report}' '{report}'".format(
+                    zip_report=zip_report,
+                    report=report
+                )
+            )
+            csv_report = os.path.join(report, "report.csv")
+            now_time = "{}_{}_{}".format(
+                datetime.datetime.now().hour,
+                datetime.datetime.now().minute,
+                datetime.datetime.now().second
+            )
+
+            host, user, password, ftp_timeout, port = FTP_CONNECTION_CREDS
+            ftp = ftplib.FTP()
+
+            try:
+                ftp.connect(host, port, ftp_timeout)
+                ftp.login(user, password)
+            except Exception as e:
+                print(e)
+
+            if tool == "va_detection":
+                ftp.cwd("ftp/automation/{}/va_detection/".format(module))
+            elif tool == "va_resources":
+                ftp.cwd("ftp/automation/{}/va_resources/".format(module))
+
+            try:
+                ftp.dir(build_version)
+            except:
+                ftp.mkd(build_version)
+            ftp.cwd(build_version)
+
+            ftp.storbinary(
+                "STOR " + "{}.zip".format(file), open(zip_report, "rb")
+            )
+            if list_rule:
+                ftp.storbinary(
+                    "STOR " + "{}_{}.csv".format(list_rule, now_time), open(csv_report, "rb"))
+
+            ftp.close()
+            os.remove(zip_report)
+
+
+@task
+def summary_csv(module, build_version):
+    """
+    Task downloads CSV reports from FTP and collects all results into common CSV report.
+    Method deletes repeated lines.
+    """
+    host, user, password, ftp_timeout, port = FTP_CONNECTION_CREDS
+    ftp = ftplib.FTP()
+    report = "report.csv"
+    output_dir = "{}/{}".format(DETECTION_TOOL_NAME, REMOTE_REPORT_PATH)
+
+    try:
+        ftp.connect(host, port, ftp_timeout)
+        ftp.login(user, password)
+    except Exception as e:
+        print(e)
+    ftp.cwd("ftp/automation/{}/".format(module))
+
+    try:
+        ftp.dir(build_version)
+    except ValueError:
+        ftp.mkd(build_version)
+    ftp.cwd(build_version)
+
+    files = ftp.nlst()
+    for zip_file in files:
+        path_to_write = os.path.join("{}/{}".format(output_dir, zip_file))
+        f = open(path_to_write, "wb")
+        ftp.retrbinary('retr ' + zip_file, f.write)
+    ftp.close()
+
+    files = os.listdir(output_dir)
+    for file in files:
+        if file.__contains__(".zip"):
+            local("unzip {path}/{zip_file} -d {output_dir}".format(
+                path=output_dir,
+                zip_file=file,
+                output_dir=output_dir
+            ))
+
+    csv_common = "{}/{}".format(output_dir, report)
+    with open(csv_common, "ab") as f:
+        for directory in os.listdir(output_dir):
+            if directory.__contains__("#"):
+                path_to_report = "{}/{}".format(output_dir, directory)
+                for in_dir in os.listdir(path_to_report):
+                    if in_dir.__contains__("__"):
+                        common_report = os.path.join("{}/{}/{}".format(path_to_report, in_dir, report))
+                        r = open(common_report, "rb")
+                        f.writelines(r.readlines())
+
+    uniq_lines = set(open(csv_common, 'r').readlines())
+    open(csv_common, 'w').writelines(uniq_lines)
+
+
+@task
+def docker_commit():
+    """ Commit changes from the last container to the image. """
+    local("docker commit {container} {image}".format(container=container_name, image=image))
+    local("docker rm {container}".format(container=container_name))
+
+
+@task
+def docker_delete_containers():
+    """ Delete all docker containers. """
+    local("docker rm -f $(docker ps -a -q)")
+
+
+@task
+def docker_delete_images():
+    """ Delete all docker images. """
+    local("docker rmi $(docker images -q)")
