@@ -19,7 +19,7 @@ def web_driver():
     # options.add_argument('--headless')
     # options.binary_location = "/usr/bin/chromium-browser"
     #
-    options = webdriver.ChromeOptions()
+    options = Options()
     # options.binary_location = '/usr/bin/chromium-browser'
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
